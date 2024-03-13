@@ -128,10 +128,10 @@ function set_conditions(test)
             1.35e-2,  #k1
             3.80e-3,  #k5
             5.82e-1,  #k6
-            7.0       #tau_g (delay)
+            2.5       #tau_g (delay)
         ]
 
-        lb = [1e-7, 1e-7, 1e-7, 1e-7]
+        lb = [1e-7, 1e-7, 1e-7, 1e-10]
         ub = [0.3, 1.0, 10.0, 20.0]
     end
     
@@ -338,7 +338,7 @@ end;
 
 function plot_bands(sim, data, glbands, gubands, ilbands, iubands; test)
     # plot model simulation with confidence intervals
-    
+
     if test == "CGM"
         u_g = Array(sim)[4,1:131];
     else
