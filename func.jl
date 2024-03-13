@@ -17,15 +17,18 @@ using LikelihoodProfiler
 using Plots
 
 function edes_delay!(du, u, p, t, c_)
+    # model equations with variable delay
+
     @unpack p_fixed, c, input = c_
 
     Mg, Gpl, Ipl, Gi = u
-
+    
     mgmeal = p_fixed[10] * p[1]^p_fixed[10] * (t-input[3])^(p_fixed[10] - 1) * exp(-(p[1] * (t-input[3]))^p_fixed[10]) * input[1]
     mgpl = p_fixed[2] * Mg
+    
+    # glucose in gut
     du[1] = mgmeal - mgpl
 
-    # glucose in plasma
     c11 = 0.043 * (p_fixed[11] + p_fixed[12]) / p_fixed[12]
     du[4] = (1.0/p[4]) * (Gpl - Gi)
     gliv = c[3] - p_fixed[3] * (Gpl - p_fixed[12]) - p_fixed[4] * c[4] * (Ipl - p_fixed[13])
@@ -33,25 +36,31 @@ function edes_delay!(du, u, p, t, c_)
     gnonit = c11 * (Gpl / (p_fixed[11] + Gpl)) 
     git = p[2] * c[4] * Ipl * (Gpl / (p_fixed[11] + Gpl))
     gren = abs(((c[10] / (c[2] * input[2]) * (Gpl - c[8]))) * tanh(100 * (Gpl - c[8])) / 2 + (c[10] / (c[2] * input[2]) * (Gpl - c[8])) / 2)
-    du[2] = gliv + ggut - gnonit - git - gren
+    
+    # glucose in plasma
+    du[2] = gliv + ggut - gnonit - git - gren 
 
     ipnc = (c[4]^-1) * (p[3] * (Gpl - p_fixed[12]) + (p_fixed[7] / c[5]) * p_fixed[12] + (p_fixed[8] * c[6]) * du[2])
     iliv = c[12] * Ipl
     iif = p_fixed[9] * (Ipl - p_fixed[13])
+    
+    # insulin in plasma
     du[3] = ipnc - iliv - iif
     nothing
 end;
 
 function edes_delayfix!(du, u, p, t, c_)
+    # model equations
     @unpack p_fixed, c, input = c_
 
     Mg, Gpl, Ipl, Gi = u
 
     mgmeal = p_fixed[10] * p[1]^p_fixed[10] * t^(p_fixed[10] - 1) * exp(-(p[1] * t)^p_fixed[10]) * input[1]
     mgpl = p_fixed[2] * Mg
+
+    # glucose in gut
     du[1] = mgmeal - mgpl
 
-    # glucose in plasma
     c11 = 0.043 * (p_fixed[11] + p_fixed[12]) / p_fixed[12] #- p[2] * p_fixed[13]
     du[4] = (1.0/2.5) * (Gpl - Gi)
     gliv = c[3] - p_fixed[3] * (Gpl - p_fixed[12]) - p_fixed[4] * c[4] * (Ipl - p_fixed[13])
@@ -59,18 +68,23 @@ function edes_delayfix!(du, u, p, t, c_)
     gnonit = c11 * (Gpl / (p_fixed[11] + Gpl)) 
     git = p[2] * c[4] * Ipl * (Gpl / (p_fixed[11] + Gpl))
     gren = abs(((c[10] / (c[2] * input[2]) * (Gpl - c[8]))) * tanh(100 * (Gpl - c[8])) / 2 + (c[10] / (c[2] * input[2]) * (Gpl - c[8])) / 2)
-    
+   
+    # glucose in plasma    
     du[2] = gliv + ggut - gnonit - git - gren
 
     ipnc = (c[4]^-1) * (p[3] * (Gpl - p_fixed[12]) + (p_fixed[7] / c[5]) * p_fixed[12] + (p_fixed[8] * c[6]) * du[2])
     iliv = c[12] * Ipl
     iif = p_fixed[9] * (Ipl - p_fixed[13])
+
+    # insulin in plasma
     du[3] = ipnc - iliv - iif
     nothing
 end;
 
 function loss(p, prob, data)
+    # loss function
 
+    # load measurements and their timestamps
     data_glu = data[1,findall(!ismissing, data[1,4:end])]
     data_ins = data[2,findall(!ismissing, data[2,4:end])]
 
@@ -98,8 +112,8 @@ end;
 
 
 function set_conditions(test)
-    
     # parameters to estimate & upper and lower bounds for parameter estimation
+
     if test == "OGTT"
         p_adj = [
             1.35e-2,  #k1 #0.01
@@ -120,15 +134,16 @@ function set_conditions(test)
         lb = [1e-7, 1e-7, 1e-7, 1e-7]
         ub = [0.3, 1.0, 10.0, 20.0]
     end
- 
-    p_fixed = [ # EDES 2.0
+    
+    # fixed parameters/constants
+    p_fixed = [
         1.35e-2,  #k1
         6.33e-1,  #k2
         5.00e-5,  #k3
         1.00e-3,  #k4
         3.80e-3,  #k5
         5.82e-1,  #k6
-        1.15,#2.20e-2,  #k7 # UP FROM EDES2.0
+        1.15,     #k7
         4.71,     #k8
         1.08e-2,  #k9
         1.35,     #sigma /index 10
@@ -150,8 +165,8 @@ function set_conditions(test)
         9.0, # Gthpl index 8
         30.0, # t_integralwindow index 9
         0.1, # c1 index 10
-        0.043 * (p_fixed[11] + p_fixed[12]) / p_fixed[12] - p_adj[2] * 1 * p_fixed[13], # c2 index 11 NOT USED
-        p_fixed[7] * (p_fixed[12] / (31 * p_fixed[13])) # c3 index 12  
+        0.043 * (p_fixed[11] + p_fixed[12]) / p_fixed[12] - p_adj[2] * 1 * p_fixed[13],
+        p_fixed[7] * (p_fixed[12] / (31 * p_fixed[13])) 
     ]
 
     input = [
@@ -162,13 +177,15 @@ function set_conditions(test)
 
     p_fix = ComponentArray(p_fixed=p_fixed, c=c, input=input)
     
-    tspan = (0.0, 130.0)    # simulation time span
+    # simulation time span
+    tspan = (0.0, 130.0)    
     u0 = [0.0, p_fixed[12], p_fixed[13], p_fixed[12]]
 
     return p_adj, lb, ub, p_fix, u0, tspan
 end;
 
 function update_conditions!(p_adj, p_fix, u0, data; test="OGTT")
+    # used to update the conditions in set_condition to the particular data used in calibration
 
     u0[2] = data[1, 4] # Glucose, tp=0
     u0[3] = data[2, 4] # Insulin, tp=0
@@ -181,7 +198,10 @@ function update_conditions!(p_adj, p_fix, u0, data; test="OGTT")
 end;
 
 function PLA(opt, lb, ub, prob, data, storage; test)
+    # profile likelihood analysis to estimate confidence intervals used to establish practical identifiability
 
+    # scan bounds and parameter bounds for LikelihoodProfiler. 
+    # In case of test == "CGM" the delay parameter is also estimated.
     if test == "OGTT"
         scan_bounds = [(1e-10, ub[1]*100), (1e-10, ub[2]*100), (1e-10, ub[3]*10)]
         theta_bounds = [(0.0, ub[1]*200), (0.0, ub[2]*200), (0.0, ub[3]*20)]
@@ -190,13 +210,15 @@ function PLA(opt, lb, ub, prob, data, storage; test)
         scan_bounds = [(1e-10, ub[1]*100), (1e-10, ub[2]*100), (1e-10, ub[3]*10), (1e-9, 25.0)]
         theta_bounds = [(0.0, ub[1]*200), (0.0, ub[2]*200), (0.0, ub[3]*20), (1e-10, 30.0)]
     end
-
+    
+    # confidence threshold
     α = loss(opt, prob, data) + 3.84
 
     num_params = length(opt);
 
     intervals_ = Vector{ParamInterval}(undef, num_params);
 
+    # estimate intervals with LikelihoodProfiler.jl
     for i in 1:num_params
         @time intervals_[i] = get_interval(
             opt,
@@ -218,12 +240,9 @@ function PLA(opt, lb, ub, prob, data, storage; test)
 end;
 
 function bands(opt, sol, lb, ub, prob, data, ts_sim; test="OGTT")
+    # estimate confidence intervals around the observables as a function of parameters over time.
 
-    data_glu = data[1,findall(!ismissing, data[1,4:end])]
-    data_ins = data[2,findall(!ismissing, data[2,4:end])]
-    ts_glu = parse.(Float64, names(data_glu)) 
-    ts_ins = parse.(Float64, names(data_ins))
-
+    # simulate observable over time
     function bands_g(p, i) # plasma glu
         prob = remake(prob) 
         sol_ = solve(prob, RadauIIA5(), p=p, saveat=1; abstol = 1e-7, reltol = 1e-5, maxiters=1e7)
@@ -236,12 +255,13 @@ function bands(opt, sol, lb, ub, prob, data, ts_sim; test="OGTT")
         return sol_[4,i]
     end;
 
-    function bands_i(p, i)
+    function bands_i(p, i) # plasma ins
         prob = remake(prob) 
         sol_ = solve(prob, RadauIIA5(), p=p, saveat=1; abstol = 1e-7, reltol = 1e-5, maxiters=1e7)
         return sol_[3,i]
     end;
     
+    # scan and parameter bounds
     if test == "OGTT"
         scan_bounds = [(1e-10, ub[1]*100), (1e-10, ub[2]*100), (1e-10, ub[3]*10)]
         theta_bounds = [(0.0, ub[1]*200), (0.0, ub[2]*200), (0.0, ub[3]*20)]
@@ -251,8 +271,10 @@ function bands(opt, sol, lb, ub, prob, data, ts_sim; test="OGTT")
         theta_bounds = [(0.0, ub[1]*200), (0.0, ub[2]*200), (0.0, ub[3]*20), (1e-10, 30.0)]
     end
 
+    # confidence threshold
     α = loss(opt, prob, data) + 3.84
 
+    # estimate confidence intervals with LikelihoodProfiler.jl
     intervals_g = Vector{ParamInterval}(undef,length(ts_sim))
     if test == "CGM"
         for i in eachindex(ts_sim)
@@ -308,12 +330,14 @@ function bands(opt, sol, lb, ub, prob, data, ts_sim; test="OGTT")
         )
     end
 
+    # save confidence bands (confidence interval of observables over time)
     ilbands = [iv.result[1].value for iv in intervals_i]
     iubands = [iv.result[2].value for iv in intervals_i]
     return glbands, gubands, ilbands, iubands
 end;
 
 function plot_bands(sim, data, glbands, gubands, ilbands, iubands; test)
+    # plot model simulation with confidence intervals
     
     if test == "CGM"
         u_g = Array(sim)[4,1:131];
