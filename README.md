@@ -1,6 +1,6 @@
 # Repository accompanying the manuscript Leveraging continuous glucose monitoring for personalized modeling of insulin-regulated glucose metabolism.
 
-The repository contains Julia code to model postprandial glucose and insulin responses of individuals after a meal challenge using the EDES model.
+The repository contains Julia code to analyse postprandial glucose and insulin responses of individuals after a meal challenge using the EDES model.
 
 ## Files
 - data.csv          Contains example experimental data used in calibrating the EDES model.
